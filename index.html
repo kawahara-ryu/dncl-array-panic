@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ねこ宅配・配列パニック 〜ダンボール箱と添字の魔法〜</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;900&family=Fira+Code:wght@500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- BGM Audio Element -->
+  <audio id="bgm" src="bgm.mp3" loop preload="auto"></audio>
+
+  <!-- Global Mute Switch -->
+  <button id="mute-btn" class="mute-btn" onclick="toggleMute()">🔊 音声ON</button>
+
+  <!-- Title Screen -->
+  <div id="screen-title" class="screen active">
+    <div class="title-container">
+      <div class="cyber-scanlines"></div>
+      <h1 class="game-title">📦 ねこ宅配・配列パニック</h1>
+      <p class="subtitle">〜ダンボール箱と添字の魔法〜</p>
+      <img src="cat_delivery.png" class="title-img float-anim" alt="宅配ねこ">
+      <p class="title-desc">
+        自分をエリート宅配業者だと思い込んでいるトラ猫。<br>
+        「配列」という名のダンボール箱に荷物を詰め込んだり探したりする業務を任されたが…<br>
+        添字を間違えるとバグモンスターが現れて大パニックに！？
+      </p>
+      <div class="difficulty-select">
+        <button class="btn btn-diff easy" onclick="startGame('easy')">🔰 初級（基本と合計）</button>
+        <button class="btn btn-diff normal" onclick="startGame('normal')">🌟 中級（最大値と交換）</button>
+        <button class="btn btn-diff hard" onclick="startGame('hard')">🔥 上級（探索と2次元配列）</button>
+        <button class="btn btn-diff ex" onclick="startGame('ex')">🏆 EX級（実践的プログラム）</button>
+      </div>
+      <div style="margin-top: 15px; display:flex; gap:10px; justify-content:center;">
+        <button class="btn btn-diff" style="border-color:#ffd700; color:#ffd700; flex:1;" onclick="showScreen('screen-achievements')">🏆 実績・称号</button>
+        <button class="btn btn-diff" style="border-color:#00ffcc; color:#00ffcc; flex:1;" onclick="showScreen('screen-glossary')">📖 アルゴリズム図鑑</button>
+      </div>
+      <div style="margin-top: 15px; border: 1px solid #333; padding:12px; border-radius:8px; text-align:center; background: rgba(0,0,0,0.3);">
+        <div style="margin-bottom:6px; color:var(--primary); font-size:0.95rem; font-weight:bold;">📺 自動仕分け工場（バブルソート見学）</div>
+        <div style="margin-bottom:8px; color:#aaa; font-size:0.8rem;">好きな数値をカンマ区切りで入力（空欄ならランダム）</div>
+        <input type="text" id="custom-array-input" placeholder="例: 9,3,5,3,2,8" style="padding:8px 12px; width:75%; background:#111; border:1px solid #00ffcc; color:#fff; font-family:var(--font-cyber); border-radius:5px; text-align:center; font-size:1rem;">
+        <br>
+        <button class="btn" style="padding:8px 20px; background:var(--primary); color:#000; font-weight:bold; border:none; border-radius:5px; margin-top:10px; cursor:pointer; box-shadow:0 0 10px rgba(0,255,204,0.3);" onclick="startVisualizer()">見学スタート ▶</button>
+      </div>
+      <div style="font-size:0.8rem; color:#888; margin-top:15px; text-align:center;">BGM：魔王魂</div>
+    </div>
+  </div>
+
+  <!-- Game Screen -->
+  <div id="screen-game" class="screen">
+    <div class="header">
+      <div class="header-top">
+        <span id="question-title">問題タイトル</span>
+        <div class="header-stats">
+          <span style="font-family:var(--font-cyber); color:#fff; font-size:0.9rem; margin-right:10px;">⏱️ <span id="time-text">00:00</span></span>
+          <span class="score-display">⭐ <span id="score-text">0</span>pt <span id="combo-text" style="color:var(--danger); font-weight:bold; font-size:0.9rem; margin-left:5px; transition:0.3s;"></span></span>
+          <span class="hp-display">
+            HP: <div class="hp-bar-container"><div class="hp-bar" id="hp-bar"></div></div>
+          </span>
+          <button class="btn-trace" id="hint-btn" style="background:#444; color:#fff;" onclick="useHint()">💡 ヒント(HP-1)</button>
+          <button class="btn-trace" id="trace-btn" style="display:none;" onclick="openTraceTable()">▶ トレース表を開く</button>
+          <button class="btn-trace" id="exit-visualizer-btn" style="display:none; background:#ff3366; color:#fff; border-color:#ff3366;" onclick="closeTraceTable()">✕ 見学終了</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="game-area">
+      <!-- 視覚化エリア（ダンボール箱） -->
+      <div class="visual-panel">
+        <div class="visual-arena" id="visual-arena">
+          <!-- JSでダンボール箱が並ぶ -->
+        </div>
+        <div class="cat-area">
+          <img src="cat_delivery.png" id="hero-cat" class="hero-cat" alt="宅配ねこ">
+          <div class="speech-bubble" id="cat-speech">ここに入る変数は何ニャ？</div>
+        </div>
+      </div>
+
+      <!-- コードと選択肢エリア / トレース表 -->
+      <div class="terminal-panel" id="terminal-panel">
+        <div class="terminal-split-container" id="terminal-split-container">
+          <!-- 左側: プログラムコード表示 -->
+          <div class="terminal-col-code" id="terminal-col-code">
+            <h3 class="terminal-title">💻 宅配システムコンソール</h3>
+            <div class="code-monitor" id="code-display">
+              <!-- JSで問題コードが生成される -->
+            </div>
+            
+            <div class="action-controls" id="choices-area">
+              <!-- JSで選択肢ボタンが生成される -->
+            </div>
+          </div>
+
+          <!-- 右側: 見学モード用インライントレース表 -->
+          <div class="terminal-col-trace" id="terminal-col-trace" style="display:none;">
+            <div class="trace-header-inline">
+              <h3 class="terminal-title" style="margin:0; color:var(--primary); font-size:1.05rem;">📋 トレース表（変数追跡）</h3>
+            </div>
+            <div class="trace-controls" id="trace-controls-inline">
+              <button class="btn btn-trace-nav" onclick="traceRestart()" title="最初に戻る">⏮ 最初へ</button>
+              <button class="btn btn-trace-nav" id="trace-prev-btn-inline" onclick="tracePrev()" title="1ステップ戻る">◀ 戻る</button>
+              <button class="btn btn-trace-nav" id="trace-play-btn-inline" onclick="toggleTracePlay()" title="一時停止/再生">⏸ 一時停止</button>
+              <button class="btn btn-trace-nav" id="trace-next-btn-inline" onclick="traceNext()" title="1ステップ進む">次へ ▶</button>
+              <button class="btn btn-trace-nav" id="trace-speed-btn-inline" onclick="cycleTraceSpeed()" title="再生速度切替">⚡ 1x</button>
+              <span id="trace-step-display-inline" style="color:#fff; font-weight:bold; font-family:var(--font-cyber); margin-left:6px;">Step 1 / 1</span>
+            </div>
+            <div class="trace-table-container" id="trace-table-container-inline">
+              <table class="trace-table" id="trace-table-inline">
+                <!-- JSで動的生成 -->
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Result Screen -->
+  <div id="screen-result" class="screen">
+    <div class="result-container">
+      <h2 class="result-title" id="result-title-text">業務完了！</h2>
+      <img src="cat_delivery.png" class="result-img float-anim" alt="リザルトねこ">
+      <div class="rank-display" id="rank-display">S</div>
+      
+      <div class="result-stats" id="result-stats">
+        <!-- JSでスコア・正答率が挿入される -->
+      </div>
+
+      <div id="password-section" class="password-section" style="display:none;">
+        <div class="password-label">🎓 Google Classroomの解答に以下の「あいことば」を入力してください。</div>
+        <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; align-items:center; margin-top:10px;">
+          <div class="password-text" id="password-text" style="margin-top:0; flex-grow:1;"></div>
+          <button class="btn-copy" id="copy-pw-btn" onclick="copyPassword()">📋 コピー</button>
+        </div>
+      </div>
+
+      <div class="review-section" id="review-section" style="display:none;">
+        <!-- 間違えた問題の復習 -->
+      </div>
+
+      <button class="btn btn-start" onclick="goToTitle()">タイトルに戻る</button>
+    </div>
+  </div>
+
+  <!-- Game Over Overlay -->
+  <div id="gameover-overlay" class="gameover-overlay">
+    <div class="gameover-text">SYSTEM CRASH...</div>
+    <div class="gameover-sub">バグモンスターに飲み込まれました</div>
+    <div class="gameover-hint" id="gameover-hint"></div>
+    <button class="btn btn-retry" onclick="retryGame()">🔄 リトライ</button>
+    <button class="btn btn-title" onclick="goToTitle()">タイトルに戻る</button>
+  </div>
+
+  <!-- Achievements Screen -->
+  <div id="screen-achievements" class="screen" style="align-items: center; justify-content: center; background: #050508; overflow-y: auto; padding: 20px 0;">
+    <div class="result-container" style="max-width: 800px;">
+      <h1 class="result-title" style="font-size: 2rem;">🏆 実績・称号</h1>
+      <div id="achievements-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px; margin-bottom:20px; text-align:left;">
+        <!-- JSで動的生成 -->
+      </div>
+      <button class="btn btn-title" onclick="goToTitle()">タイトルに戻る</button>
+    </div>
+  </div>
+
+  <!-- Glossary Screen -->
+  <div id="screen-glossary" class="screen" style="align-items: center; justify-content: center; background: #050508; overflow-y: auto; padding: 20px 0;">
+    <div class="result-container" style="max-width: 800px; text-align:left;">
+      <h1 class="result-title" style="font-size: 2rem; text-align:center;">📖 アルゴリズム図鑑</h1>
+      <div id="glossary-content" style="margin-bottom:20px; color:#ddd; line-height:1.6;">
+        <h3 style="color:var(--primary);">🔍 線形探索（リニアサーチ）</h3>
+        <p>配列の先頭から順番に「これかな？」と1つずつ探していくもっともシンプルな方法。データがバラバラでも探せるが、数が多いと時間がかかるニャ。</p>
+        <h3 style="color:var(--primary);">🔍 二分探索（バイナリサーチ）</h3>
+        <p>データが「順番に並んでいる（ソート済み）」ときに使える高速な探し方。真ん中を見て「右か左か」を判断し、探す範囲を半分ずつに絞っていくニャ！</p>
+        <h3 style="color:var(--primary);">🔄 バブルソート</h3>
+        <p>隣り合う箱を見比べて、順番が逆なら「交換」するのを繰り返す方法。重い泡（大きな数字）が右側にブクブクと沈んでいくように見えることから名前がついたニャ！</p>
+      </div>
+      <div style="text-align:center;">
+        <button class="btn btn-title" onclick="goToTitle()">タイトルに戻る</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast-container" style="position:fixed; bottom:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:10px; pointer-events:none;"></div>
+
+  <!-- Trace Table Overlay -->
+  <div id="trace-overlay" class="overlay hidden">
+    <div class="trace-box">
+      <div class="trace-header">
+        <h2 style="margin:0; color:var(--primary); font-family:var(--font-cyber);">📋 トレース表（変数追跡）</h2>
+        <button class="close-btn" onclick="closeTraceTable()">✕</button>
+      </div>
+      <div class="trace-controls" id="trace-controls">
+        <button class="btn btn-trace-nav" id="trace-restart-btn" onclick="traceRestart()" title="最初に戻る">⏮ 最初へ</button>
+        <button class="btn btn-trace-nav" id="trace-prev-btn" onclick="tracePrev()" title="1ステップ戻る">◀ 戻る</button>
+        <button class="btn btn-trace-nav" id="trace-play-btn" onclick="toggleTracePlay()" title="一時停止/再生">⏸ 一時停止</button>
+        <button class="btn btn-trace-nav" id="trace-next-btn" onclick="traceNext()" title="1ステップ進む">次へ ▶</button>
+        <button class="btn btn-trace-nav" id="trace-speed-btn" onclick="cycleTraceSpeed()" title="再生速度切替">⚡ 1x</button>
+        <span id="trace-step-display" style="color:#fff; font-weight:bold; font-family:var(--font-cyber); margin-left:10px;">Step 1 / 1</span>
+      </div>
+      <div class="trace-table-container">
+        <table class="trace-table" id="trace-table">
+          <!-- JSで動的生成 -->
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Effect Overlays -->
+  <div id="damage-flash" class="damage-flash hidden"></div>
+  <div id="correct-flash" class="correct-flash hidden"></div>
+
+  <script src="questions.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
